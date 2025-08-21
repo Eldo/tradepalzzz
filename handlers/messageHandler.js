@@ -8,9 +8,9 @@ const messageHandler = async (msg) => {
   const phone = msg.from; // Sender's phone
   let text = '';
 
-  // Validate and set text only if type and body exist
-  if (msg.type === 'text' && msg.body) {
-    text = msg.body;
+  // Handle nested text.body from Whapi.Cloud payload
+  if (msg.type === 'text' && msg.text?.body) {
+    text = msg.text.body;
   }
   const type = msg.type;
 
@@ -29,12 +29,12 @@ const messageHandler = async (msg) => {
   if (isGroup && !global.messages.get(msg.chat_id)?.some(m => m.fromBot)) {
     await sendText(
       msg.chat_id,
-      'TradePalzzz has been added to this group! Use commands like /start, /track, /receipt, /help, /about, /tax, or /account records. Send images or PDFs for text extraction.'
+      'WaffBot has been added to this group! Use commands like /start, /track, /receipt, /help, /about, /tax, or /account records. Send images or PDFs for text extraction.'
     );
     chatMessages = global.messages.get(msg.chat_id) || [];
     chatMessages.push({
       phone: process.env.BOT_PHONE,
-      text: 'TradePalzzz has been added to this group!...',
+      text: 'WaffBot has been added to this group!...',
       type: 'text',
       timestamp: new Date(),
       fromBot: true
@@ -79,19 +79,19 @@ const messageHandler = async (msg) => {
     // Handle onboarding steps
     switch (user.state) {
       case 'fullname':
-        user.fullname = msg.body;
+        user.fullname = msg.text.body; // Use msg.text.body for consistency
         user.state = 'email';
         global.users.set(phone, user);
         await sendText(msg.chat_id, 'Please enter your email:');
         return;
       case 'email':
-        user.email = msg.body;
+        user.email = msg.text.body; // Use msg.text.body for consistency
         user.state = 'bvn';
         global.users.set(phone, user);
         await sendText(msg.chat_id, 'Please enter your BVN:');
         return;
       case 'bvn':
-        user.bvn = msg.body;
+        user.bvn = msg.text.body; // Use msg.text.body for consistency
         user.state = null;
         global.users.set(phone, user);
         await sendText(msg.chat_id, 'Onboarding complete!');
@@ -103,7 +103,7 @@ const messageHandler = async (msg) => {
     if (!user) {
       await sendText(
         msg.chat_id,
-        `You don't have an account with TradePalzzz, use the link below to get started: https://wa.me/${process.env.BOT_PHONE}?text=Start`
+        `You don't have an account with WaffBot, use the link below to get started: https://wa.me/${process.env.BOT_PHONE}?text=Start`
       );
       return;
     }
@@ -123,7 +123,7 @@ const messageHandler = async (msg) => {
     await sendText(msg.chat_id, 'Commands: /start, /receipt, /track, /help, /about, /tax, /account records');
     return;
   } else if (text === '/about') {
-    await sendText(msg.chat_id, 'TradePalzzz is a versatile WhatsApp bot for logging, summarizing, and more.');
+    await sendText(msg.chat_id, 'WaffBot is a versatile WhatsApp bot for logging, summarizing, and more.');
     return;
   } else if (text === '/receipt') {
     await sendText(msg.chat_id, 'Receipt for last transaction: [Placeholder - No transactions yet]');
