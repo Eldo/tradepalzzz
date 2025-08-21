@@ -3,9 +3,15 @@ import { doOCR } from '../utils/ocr.js';
 import { summarizeConversation } from '../utils/gemini.js';
 
 const messageHandler = async (msg) => {
-  const isGroup = msg.chat_id.endsWith('@g.us');
+  console.log('Received message:', msg); // Debug log for payload
+  const isGroup = msg.chat_id?.endsWith('@g.us');
   const phone = msg.from; // Sender's phone
-  let text = msg.type === 'text' ? msg.body : '';
+  let text = '';
+
+  // Validate and set text only if type and body exist
+  if (msg.type === 'text' && msg.body) {
+    text = msg.body;
+  }
   const type = msg.type;
 
   // Log message
@@ -39,7 +45,11 @@ const messageHandler = async (msg) => {
   // OCR for images/PDFs in 1:1 or groups
   if (type === 'image' || (type === 'document' && msg[type]?.mime_type === 'application/pdf')) {
     const mediaObject = msg[type];
-    const url = mediaObject.link;
+    const url = mediaObject?.link;
+    if (!url) {
+      await sendText(msg.chat_id, 'No media link available. Please try again.');
+      return;
+    }
     try {
       const ocrText = await doOCR(url, mediaObject.mime_type);
       await sendText(msg.chat_id, `Extracted text: ${ocrText}`);
@@ -53,13 +63,13 @@ const messageHandler = async (msg) => {
       });
       global.messages.set(msg.chat_id, chatMessages);
     } catch (err) {
-      console.error('OCR error:', err);
+      console.error('OCR Handler Error:', err.message);
       await sendText(msg.chat_id, 'Failed to process media. Please try again.');
     }
     return;
   }
 
-  if (type !== 'text') return;
+  if (!text) return; // Exit if no text to process
 
   text = text.trim().toLowerCase();
 
