@@ -1,6 +1,6 @@
 import { sendText } from '../utils/send.js';
 import { doOCR } from '../utils/ocr.js';
-import { summarizeConversation, generateReply } from '../utils/gemini.js'; // Import generateReply
+import { summarizeConversation, generateReply } from '../utils/gemini.js';
 
 const messageHandler = async (msg) => {
   console.log('Received message:', msg); // Debug log for payload
@@ -79,19 +79,19 @@ const messageHandler = async (msg) => {
     // Handle onboarding steps
     switch (user.state) {
       case 'fullname':
-        user.fullname = msg.text.body; // Use msg.text.body for consistency
+        user.fullname = msg.text.body;
         user.state = 'email';
         global.users.set(phone, user);
         await sendText(msg.chat_id, 'Please enter your email:');
         return;
       case 'email':
-        user.email = msg.text.body; // Use msg.text.body for consistency
+        user.email = msg.text.body;
         user.state = 'bvn';
         global.users.set(phone, user);
         await sendText(msg.chat_id, 'Please enter your BVN:');
         return;
       case 'bvn':
-        user.bvn = msg.text.body; // Use msg.text.body for consistency
+        user.bvn = msg.text.body;
         user.state = null;
         global.users.set(phone, user);
         await sendText(msg.chat_id, 'Onboarding complete!');
@@ -109,17 +109,17 @@ const messageHandler = async (msg) => {
     }
   }
 
-  // Commands
+  // Commands and keyword triggers
   let handled = false;
   if (text === '/start' || text === '/get started') {
     handled = true;
     if (user) {
       await sendText(msg.chat_id, 'You already have an account.');
-      return;
+    } else {
+      user = { state: 'fullname' };
+      global.users.set(phone, user);
+      await sendText(msg.chat_id, 'Welcome! Please enter your full name:');
     }
-    user = { state: 'fullname' };
-    global.users.set(phone, user);
-    await sendText(msg.chat_id, 'Welcome! Please enter your full name:');
   } else if (text === '/help') {
     handled = true;
     await sendText(msg.chat_id, 'Commands: /start, /receipt, /track, /help, /about, /tax, /account records');
@@ -147,25 +147,21 @@ const messageHandler = async (msg) => {
     handled = true;
     if (!user) {
       await sendText(msg.chat_id, 'No account found.');
-      return;
+    } else {
+      await sendText(msg.chat_id, `Fullname: ${user.fullname}\nEmail: ${user.email}\nBVN: ${user.bvn}`);
     }
-    await sendText(msg.chat_id, `Fullname: ${user.fullname}\nEmail: ${user.email}\nBVN: ${user.bvn}`);
-  }
-
-  // Keyword trigger / auto respond
-  if (text.includes('hello') || text.includes('hi')) {
+  } else if (text.includes('hello') || text.includes('hi')) {
     handled = true;
     await sendText(msg.chat_id, 'Hi there! How can I help?');
   }
 
-  // AI-powered smart reply if not handled by commands or keywords
-  if (!handled && text) {
+  // AI-powered smart reply only for user messages
+  if (!handled && text && !msg.from_me) { // Check if message is not from the bot
     const history = global.messages.get(msg.chat_id) || [];
     const conv = history.map(m => `${m.fromBot ? 'Bot' : m.phone}: ${m.text}`).join('\n');
     try {
       const aiReply = await generateReply(conv, text);
       await sendText(msg.chat_id, aiReply);
-      // Log the AI reply
       chatMessages = global.messages.get(msg.chat_id) || [];
       chatMessages.push({
         phone: process.env.BOT_PHONE,
