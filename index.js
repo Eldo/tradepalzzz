@@ -7,6 +7,11 @@ app.use(express.json());
 global.users = new Map(); // phone => { fullname, email, bvn, state }
 global.messages = new Map(); // chat_id => array of { phone, text, type, timestamp, fromBot }
 
+// Add a simple GET handler for the root
+app.get('/', (req, res) => {
+  res.status(200).send('TradePalzzz is running. Use /webhook for messages and /send for broadcasts.');
+});
+
 import webhook from './webhook/webhook.js';
 import sendApi from './api/send.js';
 
