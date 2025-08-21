@@ -7,9 +7,28 @@ app.use(express.json());
 global.users = new Map(); // phone => { fullname, email, bvn, state }
 global.messages = new Map(); // chat_id => array of { phone, text, type, timestamp, fromBot }
 
-// Add a simple GET handler for the root
+// Health check endpoint
 app.get('/', (req, res) => {
-  res.status(200).send('TradePalzzz is running. Use /webhook for messages and /send for broadcasts.');
+  const health = {
+    status: 'healthy',
+    message: 'TradePalzzz is running',
+    registeredUsers: global.users.size,
+    messagesLogged: Array.from(global.messages.values()).reduce((sum, msgs) => sum + msgs.length, 0),
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  };
+
+  // Simulate a basic health check (e.g., ensure caches are writable)
+  try {
+    global.users.set('healthCheck', { state: 'test' });
+    global.users.delete('healthCheck');
+    res.status(200).json(health);
+  } catch (err) {
+    health.status = 'unhealthy';
+    health.message = 'TradePalzzz encountered an error';
+    health.error = err.message;
+    res.status(500).json(health);
+  }
 });
 
 import webhook from './webhook/webhook.js';
