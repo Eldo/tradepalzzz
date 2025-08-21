@@ -1,6 +1,6 @@
 import { sendText } from '../utils/send.js';
 import { doOCR } from '../utils/ocr.js';
-import { summarizeConversation } from '../utils/gemini.js';
+import { summarizeConversation, generateReply } from '../utils/gemini.js'; // Import generateReply
 
 const messageHandler = async (msg) => {
   console.log('Received message:', msg); // Debug log for payload
@@ -110,7 +110,9 @@ const messageHandler = async (msg) => {
   }
 
   // Commands
+  let handled = false;
   if (text === '/start' || text === '/get started') {
+    handled = true;
     if (user) {
       await sendText(msg.chat_id, 'You already have an account.');
       return;
@@ -118,17 +120,17 @@ const messageHandler = async (msg) => {
     user = { state: 'fullname' };
     global.users.set(phone, user);
     await sendText(msg.chat_id, 'Welcome! Please enter your full name:');
-    return;
   } else if (text === '/help') {
+    handled = true;
     await sendText(msg.chat_id, 'Commands: /start, /receipt, /track, /help, /about, /tax, /account records');
-    return;
   } else if (text === '/about') {
+    handled = true;
     await sendText(msg.chat_id, 'WaffBot is a versatile WhatsApp bot for logging, summarizing, and more.');
-    return;
   } else if (text === '/receipt') {
+    handled = true;
     await sendText(msg.chat_id, 'Receipt for last transaction: [Placeholder - No transactions yet]');
-    return;
   } else if (text === '/track') {
+    handled = true;
     const history = global.messages.get(msg.chat_id) || [];
     const conv = history.map(m => `${m.fromBot ? 'Bot' : m.phone}: ${m.text}`).join('\n');
     try {
@@ -138,22 +140,45 @@ const messageHandler = async (msg) => {
       console.error('Summarization error:', err);
       await sendText(msg.chat_id, 'Failed to summarize conversation. Please try again.');
     }
-    return;
   } else if (text === '/tax') {
+    handled = true;
     await sendText(msg.chat_id, 'Tax calculation: [Placeholder - Enter amount for real calc]');
-    return;
   } else if (text === '/account records') {
+    handled = true;
     if (!user) {
       await sendText(msg.chat_id, 'No account found.');
       return;
     }
     await sendText(msg.chat_id, `Fullname: ${user.fullname}\nEmail: ${user.email}\nBVN: ${user.bvn}`);
-    return;
   }
 
   // Keyword trigger / auto respond
   if (text.includes('hello') || text.includes('hi')) {
+    handled = true;
     await sendText(msg.chat_id, 'Hi there! How can I help?');
+  }
+
+  // AI-powered smart reply if not handled by commands or keywords
+  if (!handled && text) {
+    const history = global.messages.get(msg.chat_id) || [];
+    const conv = history.map(m => `${m.fromBot ? 'Bot' : m.phone}: ${m.text}`).join('\n');
+    try {
+      const aiReply = await generateReply(conv, text);
+      await sendText(msg.chat_id, aiReply);
+      // Log the AI reply
+      chatMessages = global.messages.get(msg.chat_id) || [];
+      chatMessages.push({
+        phone: process.env.BOT_PHONE,
+        text: aiReply,
+        type: 'text',
+        timestamp: new Date(),
+        fromBot: true
+      });
+      global.messages.set(msg.chat_id, chatMessages);
+    } catch (err) {
+      console.error('AI Reply Error:', err.message);
+      await sendText(msg.chat_id, 'Sorry, I encountered an error. Please try again.');
+    }
   }
 };
 
