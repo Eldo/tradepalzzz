@@ -155,8 +155,9 @@ const messageHandler = async (msg) => {
     await sendText(msg.chat_id, 'Hi there! How can I help?');
   }
 
-  // AI-powered smart reply only for user messages
-  if (!handled && text && !msg.from_me) { // Check if message is not from the bot
+  // AI-powered smart reply only if the last message wasn't from the bot
+  const lastMessage = chatMessages[chatMessages.length - 1];
+  if (!handled && text && (!lastMessage || !lastMessage.fromBot)) {
     const history = global.messages.get(msg.chat_id) || [];
     const conv = history.map(m => `${m.fromBot ? 'Bot' : m.phone}: ${m.text}`).join('\n');
     try {
@@ -177,5 +178,5 @@ const messageHandler = async (msg) => {
     }
   }
 };
-//open
+
 export default messageHandler;
