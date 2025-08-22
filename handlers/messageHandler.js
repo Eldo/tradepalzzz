@@ -2,6 +2,9 @@ import { sendText } from '../utils/send.js';
 import { doOCR } from '../utils/ocr.js';
 import { summarizeConversation, generateReply } from '../utils/gemini.js';
 
+// Track last response time per chat_id to prevent rapid replies
+const lastResponseTime = new Map();
+
 const messageHandler = async (msg) => {
   console.log('Received message:', msg); // Debug log for payload
   const isGroup = msg.chat_id?.endsWith('@g.us');
@@ -29,12 +32,12 @@ const messageHandler = async (msg) => {
   if (isGroup && !global.messages.get(msg.chat_id)?.some(m => m.fromBot)) {
     await sendText(
       msg.chat_id,
-      'WaffBot has been added to this group! Use commands like /start, /track, /receipt, /help, /about, /tax, or /account records. Send images or PDFs for text extraction.'
+      'TradePalzzz has been added to this group! Use commands like /start, /track, /receipt, /help, /about, /tax, or /account records. Send images or PDFs for text extraction.'
     );
     chatMessages = global.messages.get(msg.chat_id) || [];
     chatMessages.push({
       phone: process.env.BOT_PHONE,
-      text: 'WaffBot has been added to this group!...',
+      text: 'TradePalzzz has been added to this group!...',
       type: 'text',
       timestamp: new Date(),
       fromBot: true
@@ -103,7 +106,7 @@ const messageHandler = async (msg) => {
     if (!user) {
       await sendText(
         msg.chat_id,
-        `You don't have an account with WaffBot, use the link below to get started: https://wa.me/${process.env.BOT_PHONE}?text=Start`
+        `You don't have an account with TradePalzzz, use the link below to get started: https://wa.me/${process.env.BOT_PHONE}?text=Start`
       );
       return;
     }
@@ -125,7 +128,7 @@ const messageHandler = async (msg) => {
     await sendText(msg.chat_id, 'Commands: /start, /receipt, /track, /help, /about, /tax, /account records');
   } else if (text === '/about') {
     handled = true;
-    await sendText(msg.chat_id, 'WaffBot is a versatile WhatsApp bot for logging, summarizing, and more.');
+    await sendText(msg.chat_id, 'TradePalzzz is a versatile WhatsApp bot for logging, summarizing, and more.');
   } else if (text === '/receipt') {
     handled = true;
     await sendText(msg.chat_id, 'Receipt for last transaction: [Placeholder - No transactions yet]');
@@ -153,11 +156,15 @@ const messageHandler = async (msg) => {
   } else if (text.includes('hello') || text.includes('hi')) {
     handled = true;
     await sendText(msg.chat_id, 'Hi there! How can I help?');
+    // Record the response time to prevent immediate AI reply
+    lastResponseTime.set(msg.chat_id, Date.now());
   }
 
-  // AI-powered smart reply only if the last message wasn't from the bot
+  // AI-powered smart reply with loop prevention
+  const lastResponse = lastResponseTime.get(msg.chat_id);
+  const timeSinceLastResponse = lastResponse ? (Date.now() - lastResponse) / 1000 : Infinity; // In seconds
   const lastMessage = chatMessages[chatMessages.length - 1];
-  if (!handled && text && (!lastMessage || !lastMessage.fromBot)) {
+  if (!handled && text && timeSinceLastResponse > 5 && (!lastMessage || !lastMessage.fromBot)) {
     const history = global.messages.get(msg.chat_id) || [];
     const conv = history.map(m => `${m.fromBot ? 'Bot' : m.phone}: ${m.text}`).join('\n');
     try {
@@ -172,6 +179,8 @@ const messageHandler = async (msg) => {
         fromBot: true
       });
       global.messages.set(msg.chat_id, chatMessages);
+      // Update last response time
+      lastResponseTime.set(msg.chat_id, Date.now());
     } catch (err) {
       console.error('AI Reply Error:', err.message);
       await sendText(msg.chat_id, 'Sorry, I encountered an error. Please try again.');
